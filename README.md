@@ -67,3 +67,111 @@ This repo contains a minimal, production-shaped e-commerce app modeled after Fli
   }
 }
 
+## 🚀 Build & Push Images
+
+From each service folder:
+
+```bash
+docker build -t <your-registry>/user-service:latest ./user-service
+docker push <your-registry>/user-service:latest
+
+docker build -t <your-registry>/product-service:latest ./product-service
+docker push <your-registry>/product-service:latest
+
+docker build -t <your-registry>/cart-service:latest ./cart-service
+docker push <your-registry>/cart-service:latest
+
+docker build -t <your-registry>/order-service:latest ./order-service
+docker push <your-registry>/order-service:latest
+
+docker build -t <your-registry>/ecommerce-frontend:latest ./frontend
+docker push <your-registry>/ecommerce-frontend:latest
+```
+
+---
+
+## ☸️ Kubernetes Deployment
+
+1. **Namespace, Secrets, ConfigMaps**
+   ```bash
+   kubectl apply -f k8s/namespace.yaml
+   kubectl apply -f k8s/secrets.yaml
+   kubectl apply -f k8s/configmaps-dbinit.yaml
+   ```
+
+2. **Databases (gp3 storage)**
+   ```bash
+   kubectl apply -f k8s/user-postgres-statefulset.yaml
+   kubectl apply -f k8s/product-postgres-statefulset.yaml
+   kubectl apply -f k8s/order-postgres-statefulset.yaml
+   kubectl apply -f k8s/redis-statefulset.yaml
+   ```
+
+3. **Deploy microservices**
+   ```bash
+   kubectl apply -f k8s/deployments/
+   kubectl apply -f k8s/services/
+   ```
+
+4. **Ingress Controller (NGINX)**
+   ```bash
+   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+   helm repo update
+   helm install ingress-nginx ingress-nginx/ingress-nginx      --namespace ingress-nginx --create-namespace
+   ```
+
+5. **Ingress Resource (TLS with cert-manager)**
+   - Make sure `ganga888.online` points to Ingress LoadBalancer.  
+   - Install cert-manager:
+     ```bash
+     helm repo add jetstack https://charts.jetstack.io
+     helm repo update
+     helm install cert-manager jetstack/cert-manager        --namespace cert-manager --create-namespace        --set installCRDs=true
+     ```
+   - Apply ClusterIssuer and Ingress:
+     ```bash
+     kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
+     kubectl apply -f k8s/ingress.yaml
+     ```
+
+---
+
+## 🌍 Test Application
+
+### Using Browser
+Open: [https://ganga888.online](https://ganga888.online)
+
+### Using curl
+```bash
+# Register
+curl -X POST https://ganga888.online/api/user/register   -H "Content-Type: application/json"   -d '{"username":"alice","password":"pw"}'
+
+# Login
+TOKEN=$(curl -s -X POST https://ganga888.online/api/user/login   -H "Content-Type: application/json"   -d '{"username":"alice","password":"pw"}' | jq -r .token)
+
+# List products
+curl https://ganga888.online/api/product/products
+
+# Add to cart
+curl -X POST https://ganga888.online/api/cart/cart/add   -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d '{"productId":1,"quantity":2}'
+
+# Checkout
+curl -X POST https://ganga888.online/api/order/orders   -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 🧹 Cleanup
+```bash
+kubectl delete namespace ecommerce
+helm uninstall ingress-nginx -n ingress-nginx
+helm uninstall cert-manager -n cert-manager
+```
+
+---
+
+## 📌 Notes
+
+- StatefulSets use `storageClassName: gp3` for AWS EBS volumes.  
+- Each microservice has its own database for loose coupling.  
+- TLS is automatically provisioned via Let’s Encrypt (cert-manager).
