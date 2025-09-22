@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: order-service, namespace: ecommerce, labels: { app: order-service } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: order-service } }
+  template:
+    metadata: { labels: { app: order-service } }
+    spec:
+      containers:
+        - name: order
+          image: ganga888/order-service:latest
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: DB_HOST, value: order-postgres.ecommerce.svc.cluster.local }
+            - { name: DB_PORT, value: "5432" }
+            - { name: DB_USER, value: "order" }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: ORDER_DB_PASSWORD } }
+            - { name: DB_NAME, value: "orderdb" }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: JWT_SECRET } }
+          readinessProbe: { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 15, periodSeconds: 20 }
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchExpressions: [ { key: app, operator: In, values: [ order-service ] } ] }
+              topologyKey: kubernetes.io/hostname

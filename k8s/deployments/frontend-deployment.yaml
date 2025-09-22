@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: frontend, namespace: ecommerce, labels: { app: frontend } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata: { labels: { app: frontend } }
+    spec:
+      containers:
+        - name: frontend
+          image: ganga888/ecommerce-frontend:latest
+          ports: [{ containerPort: 80 }]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchExpressions: [ { key: app, operator: In, values: [ frontend ] } ] }
+              topologyKey: kubernetes.io/hostname

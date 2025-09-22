@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: cart-service, namespace: ecommerce, labels: { app: cart-service } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: cart-service } }
+  template:
+    metadata: { labels: { app: cart-service } }
+    spec:
+      containers:
+        - name: cart
+          image: ganga888/cart-service:latest
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: REDIS_HOST, value: cart-redis.ecommerce.svc.cluster.local }
+            - { name: REDIS_PORT, value: "6379" }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: JWT_SECRET } }
+          readinessProbe: { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 15, periodSeconds: 20 }
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchExpressions: [ { key: app, operator: In, values: [ cart-service ] } ] }
+              topologyKey: kubernetes.io/hostname

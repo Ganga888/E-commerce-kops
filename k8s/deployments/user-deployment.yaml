@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: user-service, namespace: ecommerce, labels: { app: user-service } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: user-service } }
+  template:
+    metadata: { labels: { app: user-service } }
+    spec:
+      containers:
+        - name: user
+          image: ganga888/user-service:latest
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: DB_HOST, value: user-postgres.ecommerce.svc.cluster.local }
+            - { name: DB_PORT, value: "5432" }
+            - { name: DB_USER, value: "user" }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: USER_DB_PASSWORD } }
+            - { name: DB_NAME, value: "userdb" }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: JWT_SECRET } }
+          readinessProbe: { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 3000 }, initialDelaySeconds: 15, periodSeconds: 20 }
+      affinity: # spread across 3 worker nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector: { matchExpressions: [ { key: app, operator: In, values: [ user-service ] } ] }
+              topologyKey: kubernetes.io/hostname
