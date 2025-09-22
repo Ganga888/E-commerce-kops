@@ -66,7 +66,7 @@ This repo contains a minimal, production-shaped e-commerce app modeled after Fli
     "pg": "^8.11.0"
   }
 }
-
+---
 ## 🚀 Build & Push Images
 
 From each service folder:
@@ -87,6 +87,8 @@ docker push <your-registry>/order-service:latest
 docker build -t <your-registry>/ecommerce-frontend:latest ./frontend
 docker push <your-registry>/ecommerce-frontend:latest
 ```
+
+---
 
 ---
 
