@@ -66,12 +66,13 @@ This repo contains a minimal, production-shaped e-commerce app modeled after Fli
     "pg": "^8.11.0"
   }
 }
+```
 ---
 ## 🚀 Build & Push Images
 
 From each service folder:
 
-```bash
+bash
 docker build -t <your-registry>/user-service:latest ./user-service
 docker push <your-registry>/user-service:latest
 
