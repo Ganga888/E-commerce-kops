@@ -1180,17 +1180,75 @@ spec:
           class: nginx
 ```
 
-3. Patch `k8s/ingress.yaml` to add:
+3. Patch or update with latest below code in `k8s/ingress.yaml` to add:
 
 ```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
+  name: ecommerce-ingress
+  namespace: ecommerce
   annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt"
+    # allow regex path matching
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # rewrite the path so backend receives the part after /api/<service>/
+    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
 spec:
+  ingressClassName: nginx
   tls:
-    - hosts: [ ganga888.online ]
+    - hosts:
+        - ganga888.online
       secretName: ganga888-online-tls
+  rules:
+    - host: ganga888.online
+      http:
+        paths:
+          # User service: /api/user/<rest> -> backend receives /<rest>
+          - path: /api/user(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+
+          # Product service: /api/product/<rest> -> backend receives /<rest>
+          - path: /api/product(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+
+          # Cart service: /api/cart/<rest> -> backend receives /<rest>
+          - path: /api/cart(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: cart-service
+                port:
+                  number: 80
+
+          # Order service: /api/order/<rest> -> backend receives /<rest>
+          - path: /api/order(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80
+
+          # Frontend: keep root path (do not rewrite)
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
 ```
 
 4. Apply ClusterIssuer and patched ingress:
