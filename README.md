@@ -26,7 +26,7 @@ This is a small microservices e-commerce demo built to show how multiple small s
 3. Service details & endpoints
 4. How services connect (DNS, headers, JWT pass-through)
 5. End-to-end request flows (examples)
-6. Local / cluster tests (port-forward)
+6. Local cluster tests (port-forward)
 7. Debugging playbook (step-by-step)
 8. Troubleshooting matrix
 9. Advanced notes: resilience, logging, and monitoring
