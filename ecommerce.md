@@ -764,6 +764,104 @@ spec:
         storageClassName: gp3
 
 ```
+### 3.4.3 product-postgres-statefulset.yaml (adjust storageClassName)
+
+```yaml
+# k8s/product-postgres-service-sts.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-postgres
+  namespace: ecommerce
+  labels:
+    app: product-postgres
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+  clusterIP: None
+  selector:
+    app: product-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: product-postgres
+  namespace: ecommerce
+spec:
+  serviceName: "product-postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-postgres
+  template:
+    metadata:
+      labels:
+        app: product-postgres
+    spec:
+      # ensure group ownership on mounted volumes
+      securityContext:
+        fsGroup: 999
+      # initContainer creates PGDATA subdir and fixes ownership (safe)
+      initContainers:
+        - name: init-pgdata
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eux
+              mkdir -p /var/lib/postgresql/data/pgdata
+              chown -R 999:999 /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_DB
+              value: productdb
+            - name: POSTGRES_USER
+              value: product
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: PRODUCT_DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d/product-init.sql
+              subPath: product-init.sql
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql
+            items:
+              - key: product-init.sql
+                path: product-init.sql
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+        labels:
+          app: product-postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: gp3
+
+```
 > Copy the same pattern for `product-postgres-statefulset.yaml` and `order-postgres-statefulset.yaml`, changing DB names, users and secret keys. Also the `redis-statefulset.yaml` is included below.
 
 ### 3.5 redis-statefulset.yaml
