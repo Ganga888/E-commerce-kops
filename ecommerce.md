@@ -864,39 +864,80 @@ spec:
 ```
 > Copy the same pattern for `product-postgres-statefulset.yaml` and `order-postgres-statefulset.yaml`, changing DB names, users and secret keys. Also the `redis-statefulset.yaml` is included below.
 
-### 3.5 redis-statefulset.yaml
+### 3.4.4 redis-statefulset.yaml
 
 ```yaml
+# k8s/cart-redis-service-sts.yaml
+---
 apiVersion: v1
 kind: Service
-metadata: { name: cart-redis, namespace: ecommerce, labels: { app: cart-redis } }
+metadata:
+  name: cart-redis
+  namespace: ecommerce
+  labels:
+    app: cart-redis
 spec:
-  ports: [{ name: redis, port: 6379 }]
+  ports:
+    - name: redis
+      port: 6379
   clusterIP: None
-  selector: { app: cart-redis }
+  selector:
+    app: cart-redis
 ---
 apiVersion: apps/v1
 kind: StatefulSet
-metadata: { name: cart-redis, namespace: ecommerce }
+metadata:
+  name: cart-redis
+  namespace: ecommerce
 spec:
   serviceName: "cart-redis"
   replicas: 1
-  selector: { matchLabels: { app: cart-redis } }
+  selector:
+    matchLabels:
+      app: cart-redis
   template:
-    metadata: { labels: { app: cart-redis } }
+    metadata:
+      labels:
+        app: cart-redis
     spec:
+      # make mounted volumes group-writable
+      securityContext:
+        fsGroup: 100
+      # initContainer creates /data and fixes ownership (safe)
+      initContainers:
+        - name: init-redisdata
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eux
+              mkdir -p /data
+              chown -R 100:100 /data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: redisdata
+              mountPath: /data
       containers:
         - name: redis
           image: redis:7-alpine
-          ports: [{ containerPort: 6379 }]
+          ports:
+            - containerPort: 6379
           volumeMounts:
-            - { name: redisdata, mountPath: /data }
+            - name: redisdata
+              mountPath: /data
   volumeClaimTemplates:
-    - metadata: { name: redisdata }
+    - metadata:
+        name: redisdata
+        labels:
+          app: cart-redis
       spec:
         accessModes: ["ReadWriteOnce"]
-        resources: { requests: { storage: 2Gi } }
-        storageClassName: gp2
+        resources:
+          requests:
+            storage: 2Gi
+        storageClassName: gp3
 ```
 
 ### 3.6 Deployments (user/product/cart/order/frontend)
