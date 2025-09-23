@@ -567,6 +567,104 @@ data:
       price_at_purchase NUMERIC(10,2) NOT NULL
     );
 ```
+### 3.4.0 storageclass-gp3.yaml (Create gp3 storageClassName)
+
+```yaml
+# k8s/user-postgres-service-sts.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-postgres
+  namespace: ecommerce
+  labels:
+    app: user-postgres
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+  clusterIP: None
+  selector:
+    app: user-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: user-postgres
+  namespace: ecommerce
+spec:
+  serviceName: "user-postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-postgres
+  template:
+    metadata:
+      labels:
+        app: user-postgres
+    spec:
+      # ensure group ownership on mounted volumes
+      securityContext:
+        fsGroup: 999
+      # initContainer creates the PGDATA subdir and fixes ownership
+      initContainers:
+        - name: init-pgdata
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eux
+              mkdir -p /var/lib/postgresql/data/pgdata
+              chown -R 999:999 /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_DB
+              value: userdb
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: USER_DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d/user-init.sql
+              subPath: user-init.sql
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql
+            items:
+              - key: user-init.sql
+                path: user-init.sql
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+        labels:
+          app: user-postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: gp3
+
+```
 
 ### 3.4.1 user-postgres-statefulset.yaml (adjust storageClassName)
 
