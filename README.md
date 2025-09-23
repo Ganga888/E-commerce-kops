@@ -37,7 +37,7 @@ This is a small microservices e-commerce demo built to show how multiple small s
 
 ## Mermaid diagram (paste to GitHub README — supported)
 
-```mermaid
+```
 flowchart LR
   subgraph Cluster [Kubernetes: namespace = ecommerce]
     direction TB
