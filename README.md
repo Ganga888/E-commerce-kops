@@ -128,6 +128,7 @@ app.get('/me', authenticate, async (req, res) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log('user-service listening', port));
 ```
+---
 
 ---
 ## 🚀 Build & Push Images
