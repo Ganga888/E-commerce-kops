@@ -1118,6 +1118,8 @@ kubectl apply -f k8s/configmaps-dbinit.yaml
 2. Deploy DB StatefulSets and Redis (wait until pods show `Running`):
 
 ```bash
+kubectl apply -f k8s/storageclass-gp3.yaml
+kubectl get sc
 kubectl apply -f k8s/user-postgres-statefulset.yaml
 kubectl apply -f k8s/product-postgres-statefulset.yaml
 kubectl apply -f k8s/order-postgres-statefulset.yaml
