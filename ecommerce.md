@@ -568,7 +568,7 @@ data:
     );
 ```
 
-### 3.4 user-postgres-statefulset.yaml (adjust storageClassName)
+### 3.4.1 user-postgres-statefulset.yaml (adjust storageClassName)
 
 ```yaml
 # k8s/user-postgres-service-sts.yaml
@@ -666,7 +666,104 @@ spec:
         storageClassName: gp3
 
 ```
+### 3.4.2 order-postgres-statefulset.yaml (adjust storageClassName)
 
+```yaml
+# k8s/order-postgres-service-sts.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-postgres
+  namespace: ecommerce
+  labels:
+    app: order-postgres
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+  clusterIP: None
+  selector:
+    app: order-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: order-postgres
+  namespace: ecommerce
+spec:
+  serviceName: "order-postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-postgres
+  template:
+    metadata:
+      labels:
+        app: order-postgres
+    spec:
+      # ensure group ownership on mounted volumes
+      securityContext:
+        fsGroup: 999
+      # initContainer creates PGDATA subdir and fixes ownership
+      initContainers:
+        - name: init-pgdata
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eux
+              mkdir -p /var/lib/postgresql/data/pgdata
+              chown -R 999:999 /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_DB
+              value: orderdb
+            - name: POSTGRES_USER
+              value: order
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: ORDER_DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d/order-init.sql
+              subPath: order-init.sql
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql
+            items:
+              - key: order-init.sql
+                path: order-init.sql
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+        labels:
+          app: order-postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: gp3
+
+```
 > Copy the same pattern for `product-postgres-statefulset.yaml` and `order-postgres-statefulset.yaml`, changing DB names, users and secret keys. Also the `redis-statefulset.yaml` is included below.
 
 ### 3.5 redis-statefulset.yaml
